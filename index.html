@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>질문 리뷰</title>
+
+  <!-- Firebase SDK (v8) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+  <!-- CSS -->
+  <style>
+    body {
+      background: #354;
+      color: #fff;
+      font-family: Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      text-align: center;
+      padding: 40px;
+    }
+
+    #counter {
+      font-size: 14px;
+      opacity: 0.8;
+      margin-bottom: 10px;
+    }
+
+    .card {
+      background: #fff;
+      color: #000;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 500px;
+      margin: 20px auto;
+      font-size: 25px;
+      line-height: 1.4;
+    }
+
+    .controls {
+      margin-top: 20px;
+    }
+
+    .controls button {
+      margin: 0 8px;
+      padding: 10px 20px;
+      font-size: 15px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+    }
+
+    #speak {
+      background: #00c6ff;
+      color: #000;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HTML -->
+  <div id="counter"></div>
+
+  <div class="card">
+    <p id="questionText">불러오는 중...</p>
+  </div>
+
+  <div class="controls">
+    <button id="prev">이전</button>
+    <button id="speak">🔊 음성 출력</button>
+    <button id="next">다음</button>
+  </div>
+
+  <!-- JS -->
+  <script>
+    /***** Firebase 설정 *****/
+    const firebaseConfig = {
+      apiKey: "AIzaSyDtDtadwFVoYMSahJyeNKqh-3NfwSagi-o",
+      authDomain: "eunbin-4ba29.firebaseapp.com",
+      projectId: "eunbin-4ba29",
+      storageBucket: "eunbin-4ba29.firebasestorage.app",
+      messagingSenderId: "1042774764206",
+      appId: "1:1042774764206:web:1068894ff8f3c583ef5b3f",
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    /***** 상태 *****/
+    let questions = [];
+    let index = 0;
+
+    const textEl = document.getElementById("questionText");
+    const counterEl = document.getElementById("counter");
+
+    /***** Firestore 불러오기 *****/
+    db.collection("questions")
+      .where("approved", "==", true)
+      .orderBy("order", "asc")
+      .onSnapshot(snapshot => {
+        questions = snapshot.docs.map(doc => doc.data());
+        index = 0;
+        render();
+      });
+
+    /***** 화면 렌더 *****/
+    function render() {
+      if (questions.length === 0) {
+        textEl.innerText = "표시할 질문이 없습니다.";
+        counterEl.innerText = "";
+        return;
+      }
+
+      textEl.innerText = questions[index].question;
+      counterEl.innerText = `${index + 1} / ${questions.length}`;
+    }
+
+    /***** 버튼 *****/
+    document.getElementById("prev").onclick = () => {
+      if (index > 0) {
+        index--;
+        render();
+      }
+    };
+
+    document.getElementById("next").onclick = () => {
+      if (index < questions.length - 1) {
+        index++;
+        render();
+      }
+    };
+
+    document.getElementById("speak").onclick = () => {
+      if (!questions[index]) return;
+
+      const u = new SpeechSynthesisUtterance(questions[index].question);
+      u.lang = "ko-KR";
+      u.rate = 1.15;
+      u.pitch = 1.2;
+      u.volume = 1;
+
+      speechSynthesis.cancel();
+      speechSynthesis.speak(u);
+    };
+  </script>
+
+</body>
+</html>
