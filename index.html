@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>질문 검토</title>
+
+  <!-- Firebase SDK (v8) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+  <style>
+    body {
+      font-family: Pretendard, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    p {
+      text-align: center;
+      color: #555;
+      margin-bottom: 20px;
+    }
+
+    #reviewList {
+      max-width: 600px;
+      margin: auto;
+      padding: 0;
+    }
+
+    .review-item {
+      list-style: none;
+      background: #fff;
+      padding: 14px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      cursor: grab;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .review-item.dragging {
+      opacity: 0.5;
+    }
+
+    .review-item button {
+      margin-left: 6px;
+      padding: 6px 10px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .approve {
+      background: #4CAF50;
+      color: #fff;
+    }
+
+    .delete {
+      background: #f44336;
+      color: #fff;
+    }
+
+    /* ✅ 승인됨 표시 */
+    .badge {
+      margin-left: 8px;
+      padding: 4px 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      background: #4CAF50;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>질문 검토</h2>
+  <p>드래그로 순서 변경 / 승인 후 최종 화면에 표시됩니다</p>
+
+  <ul id="reviewList"></ul>
+
+  <script>
+    /***** Firebase 설정 *****/
+    const firebaseConfig = {
+      apiKey: "AIzaSyDtDtadwFVoYMSahJyeNKqh-3NfwSagi-o",
+      authDomain: "eunbin-4ba29.firebaseapp.com",
+      projectId: "eunbin-4ba29",
+      storageBucket: "eunbin-4ba29.firebasestorage.app",
+      messagingSenderId: "1042774764206",
+      appId: "1:1042774764206:web:1068894ff8f3c583ef5b3f",
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const list = document.getElementById("reviewList");
+    let dragItem = null;
+
+    /***** 실시간 질문 불러오기 *****/
+    db.collection("questions")
+      .orderBy("order", "asc")
+      .onSnapshot(snapshot => {
+        list.innerHTML = "";
+
+        snapshot.forEach(doc => {
+          const data = doc.data();
+
+          const li = document.createElement("li");
+          li.className = "review-item";
+          li.draggable = true;
+          li.dataset.id = doc.id;
+
+          li.innerHTML = `
+            <span>
+              ${data.question}
+              ${data.approved ? `<span class="badge">승인됨</span>` : ``}
+            </span>
+            <div>
+              ${
+                data.approved
+                  ? ``
+                  : `<button class="approve" onclick="approve('${doc.id}')">승인</button>`
+              }
+              <button class="delete" onclick="removeQ('${doc.id}')">삭제</button>
+            </div>
+          `;
+
+          addDragEvents(li);
+          list.appendChild(li);
+        });
+      });
+
+    /***** 승인 *****/
+    function approve(id) {
+      db.collection("questions").doc(id).update({
+        approved: true
+      });
+    }
+
+    /***** 삭제 *****/
+    function removeQ(id) {
+      if (confirm("삭제할까요?")) {
+        db.collection("questions").doc(id).delete();
+      }
+    }
+
+    /***** 드래그 이벤트 *****/
+    function addDragEvents(el) {
+      el.addEventListener("dragstart", () => {
+        dragItem = el;
+        el.classList.add("dragging");
+      });
+
+      el.addEventListener("dragend", () => {
+        el.classList.remove("dragging");
+        updateOrder();
+      });
+
+      el.addEventListener("dragover", e => {
+        e.preventDefault();
+        const after = getDragAfterElement(list, e.clientY);
+        if (after == null) {
+          list.appendChild(dragItem);
+        } else {
+          list.insertBefore(dragItem, after);
+        }
+      });
+    }
+
+    function getDragAfterElement(container, y) {
+      return [...container.querySelectorAll(".review-item:not(.dragging)")]
+        .reduce((closest, child) => {
+          const box = child.getBoundingClientRect();
+          const offset = y - box.top - box.height / 2;
+          if (offset < 0 && offset > closest.offset) {
+            return { offset, element: child };
+          } else {
+            return closest;
+          }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+
+    /***** 순서 Firestore 반영 *****/
+    function updateOrder() {
+      [...list.children].forEach((el, i) => {
+        db.collection("questions").doc(el.dataset.id).update({
+          order: i + 1
+        });
+      });
+    }
+  </script>
+
+</body>
+</html>
